@@ -1,7 +1,7 @@
 Clarity Canvas 🎨✨
 Turn raw data into clear insights in seconds. Clarity Canvas is a powerful, zero-installation web tool that lets you upload, clean, and visualize CSV data directly in your browser.
 
-➡️ View Live Demo 
+➡️ View Live Demo https://aryan-2006.github.io/Data-visualization/
 A placeholder for a screenshot of your application in action. Replace this with a real image!
 
 The Problem It Solves
@@ -50,7 +50,7 @@ Getting started with Clarity Canvas is as simple as it gets.
 
 Clone the repository:
 
-git clone 
+git clone https://github.com/Aryan-2006/Data-visualization
 
 (Alternatively, you can just download the index.html file directly.)
 
