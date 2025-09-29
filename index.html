@@ -1,0 +1,536 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarity Canvas - Interactive Data Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .card {
+            @apply bg-white rounded-xl shadow-md p-6 transition-all duration-300;
+        }
+        .btn {
+            @apply px-4 py-2 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2;
+        }
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-lg;
+        }
+        .btn-secondary {
+             @apply bg-gray-500 hover:bg-gray-600;
+        }
+        .input-field, .select-field {
+            @apply w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        th, td {
+            @apply px-4 py-2 text-left;
+        }
+        th {
+            @apply sticky top-0 bg-gray-100 z-10;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Clarity Canvas</h1>
+            <p class="text-lg text-gray-600 mt-2">Upload, clean, and analyze your data directly in the browser.</p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-1 flex flex-col gap-8">
+                <!-- File Upload Card -->
+                <div id="upload-card" class="card">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="upload-cloud"></i> 1. Upload Your Data</h2>
+                    <p class="text-sm text-gray-500 mb-4">Upload a CSV file to get started. The first row should contain headers.</p>
+                    <input type="file" id="csv-file" accept=".csv" class="w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100 cursor-pointer"/>
+                </div>
+
+                <!-- Data Cleaning Card -->
+                <div id="controls-card" class="card hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="wrench"></i> 2. Clean & Prepare Data</h2>
+
+                    <!-- Handle Null Values -->
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2">Handle Missing Values</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <select id="null-column-select" class="select-field"></select>
+                            <select id="null-action-select" class="select-field">
+                                <option value="">Select Action</option>
+                                <option value="remove_row">Remove Row</option>
+                                <option value="fill_mean">Fill with Mean (Numeric)</option>
+                                <option value="fill_median">Fill with Median (Numeric)</option>
+                                <option value="fill_mode">Fill with Mode</option>
+                            </select>
+                        </div>
+                        <button id="apply-null-action" class="btn btn-primary w-full mt-3">Apply Action</button>
+                    </div>
+
+                    <!-- Filter Data -->
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2">Filter Data</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                             <select id="filter-column-select" class="select-field"></select>
+                             <select id="filter-operator-select" class="select-field">
+                                <option value="==">==</option>
+                                <option value="!=">!=</option>
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                                <option value=">=">&gt;=</option>
+                                <option value="<=">&lt;=</option>
+                                <option value="contains">contains</option>
+                             </select>
+                             <input type="text" id="filter-value-input" placeholder="Value" class="input-field"/>
+                        </div>
+                        <button id="apply-filter" class="btn btn-primary w-full mt-3">Apply Filter</button>
+                    </div>
+
+                     <!-- Sort Data -->
+                    <div>
+                        <h3 class="font-semibold mb-2">Sort Data</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <select id="sort-column-select" class="select-field"></select>
+                            <select id="sort-direction-select" class="select-field">
+                                <option value="asc">Ascending</option>
+                                <option value="desc">Descending</option>
+                            </select>
+                        </div>
+                        <button id="apply-sort" class="btn btn-primary w-full mt-3">Apply Sort</button>
+                    </div>
+
+                    <button id="reset-data" class="btn btn-secondary w-full mt-6">Reset All Changes</button>
+                </div>
+            </div>
+
+            <!-- Right Column: Data Display & Viz -->
+            <div class="lg:col-span-2 flex flex-col gap-8">
+
+                 <!-- NEW: Data Summary Card -->
+                <div id="summary-card" class="card hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="notebook-tabs"></i> Data Summary</h2>
+                    <div id="summary-content" class="summary-grid">
+                        <!-- Summary stats will be injected here -->
+                    </div>
+                </div>
+
+                 <!-- Data Table Card -->
+                <div id="table-card" class="card hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="table-2"></i> Data Preview</h2>
+                    <p id="table-info" class="text-sm text-gray-500 mb-4"></p>
+                    <div class="table-container border rounded-lg">
+                        <table class="w-full text-sm">
+                            <thead id="table-head"></thead>
+                            <tbody id="table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                 <!-- Visualization Card -->
+                <div id="viz-card" class="card hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="bar-chart-3"></i> 3. Visualize Data</h2>
+                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <select id="chart-type-select" class="select-field">
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="scatter">Scatter Plot</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                        <select id="x-axis-select" class="select-field"></select>
+                        <select id="y-axis-select" class="select-field"></select>
+                        <button id="generate-chart" class="btn btn-primary">Generate Chart</button>
+                     </div>
+                     <canvas id="myChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // DOM Elements
+        const csvFileInput = document.getElementById('csv-file');
+        const controlsCard = document.getElementById('controls-card');
+        const tableCard = document.getElementById('table-card');
+        const vizCard = document.getElementById('viz-card');
+        const summaryCard = document.getElementById('summary-card');
+        const summaryContent = document.getElementById('summary-content');
+        const tableHead = document.getElementById('table-head');
+        const tableBody = document.getElementById('table-body');
+        const tableInfo = document.getElementById('table-info');
+
+        // Control Elements
+        const nullColumnSelect = document.getElementById('null-column-select');
+        const applyNullActionBtn = document.getElementById('apply-null-action');
+        const nullActionSelect = document.getElementById('null-action-select');
+        const filterColumnSelect = document.getElementById('filter-column-select');
+        const filterOperatorSelect = document.getElementById('filter-operator-select');
+        const filterValueInput = document.getElementById('filter-value-input');
+        const applyFilterBtn = document.getElementById('apply-filter');
+        const sortColumnSelect = document.getElementById('sort-column-select');
+        const sortDirectionSelect = document.getElementById('sort-direction-select');
+        const applySortBtn = document.getElementById('apply-sort');
+        const resetDataBtn = document.getElementById('reset-data');
+
+        // Visualization Elements
+        const chartTypeSelect = document.getElementById('chart-type-select');
+        const xAxisSelect = document.getElementById('x-axis-select');
+        const yAxisSelect = document.getElementById('y-axis-select');
+        const generateChartBtn = document.getElementById('generate-chart');
+
+        // App State
+        let originalData = [];
+        let processedData = [];
+        let headers = [];
+        let chartInstance = null;
+
+        // Event Listeners
+        csvFileInput.addEventListener('change', handleFileUpload);
+        applyNullActionBtn.addEventListener('click', handleNullAction);
+        applyFilterBtn.addEventListener('click', applyFilter);
+        applySortBtn.addEventListener('click', applySort);
+        resetDataBtn.addEventListener('click', resetData);
+        generateChartBtn.addEventListener('click', generateChart);
+
+        // --- Data Loading and Parsing ---
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    const parsed = parseCSV(text);
+                    headers = parsed.headers;
+                    originalData = parsed.data;
+                    processedData = JSON.parse(JSON.stringify(originalData)); // Deep copy
+
+                    displayData();
+                    populateSelects();
+                    displaySummary();
+
+                    // Show hidden cards
+                    controlsCard.classList.remove('hidden');
+                    summaryCard.classList.remove('hidden');
+                    tableCard.classList.remove('hidden');
+                    vizCard.classList.remove('hidden');
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const data = lines.slice(1).map(line => {
+                const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // Handle commas inside quotes
+                let row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] ? values[index].trim().replace(/"/g, '') : '';
+                });
+                return row;
+            });
+            return { headers, data };
+        }
+
+        function displayData() {
+            renderTable(processedData);
+            tableInfo.textContent = `Showing ${processedData.length} of ${originalData.length} rows.`;
+            // Refresh chart if it exists
+            if(chartInstance) generateChart();
+        }
+
+        function renderTable(data) {
+            // Header
+            tableHead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+            // Body
+            const rowsHtml = data.slice(0, 200).map(row => { // Limit to 200 rows for performance
+                return `<tr>${headers.map(h => `<td class="border-t border-gray-200">${row[h]}</td>`).join('')}</tr>`;
+            }).join('');
+            tableBody.innerHTML = rowsHtml;
+        }
+
+        function populateSelects() {
+            const optionsHtml = `<option value="">Select Column</option>` + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+            [nullColumnSelect, filterColumnSelect, sortColumnSelect, xAxisSelect, yAxisSelect].forEach(select => {
+                select.innerHTML = optionsHtml;
+            });
+            yAxisSelect.innerHTML = `<option value="">Select Value Column</option>` + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+            xAxisSelect.innerHTML = `<option value="">Select Label Column</option>` + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+        }
+
+        function resetData() {
+            processedData = JSON.parse(JSON.stringify(originalData));
+            displayData();
+            displaySummary();
+            alertMessage('All changes have been reset.');
+        }
+
+        // --- NEW: Data Summary ---
+        function calculateSummary(data, column) {
+            const values = data.map(row => row[column]).filter(v => v !== '' && v !== null);
+            const numericValues = values.map(v => parseFloat(v)).filter(v => !isNaN(v));
+
+            if (numericValues.length > values.length * 0.8) { // Heuristic for numeric column
+                const sorted = [...numericValues].sort((a,b) => a-b);
+                const sum = numericValues.reduce((a, b) => a + b, 0);
+                const mean = sum / numericValues.length;
+                const mid = Math.floor(sorted.length / 2);
+                const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
+                const stdDev = Math.sqrt(numericValues.map(x => Math.pow(x - mean, 2)).reduce((a,b) => a+b, 0) / numericValues.length);
+
+                return {
+                    type: 'Numeric',
+                    count: numericValues.length,
+                    mean: mean.toFixed(2),
+                    median: median.toFixed(2),
+                    stdDev: stdDev.toFixed(2),
+                    min: Math.min(...numericValues),
+                    max: Math.max(...numericValues)
+                };
+            } else { // Categorical
+                const counts = values.reduce((acc, val) => {
+                    acc[val] = (acc[val] || 0) + 1;
+                    return acc;
+                }, {});
+                return {
+                    type: 'Categorical',
+                    count: values.length,
+                    unique: Object.keys(counts).length,
+                }
+            }
+        }
+
+        function displaySummary() {
+            summaryContent.innerHTML = '';
+            headers.forEach(header => {
+                const stats = calculateSummary(processedData, header);
+                let contentHtml = `<div class="p-4 border rounded-lg bg-gray-50">`;
+                contentHtml += `<h4 class="font-bold text-blue-600">${header}</h4>`;
+                contentHtml += `<p class="text-xs text-gray-500 font-semibold mb-2">${stats.type}</p>`;
+                if (stats.type === 'Numeric') {
+                    contentHtml += `<p class="text-sm"><b>Mean:</b> ${stats.mean}</p>`;
+                    contentHtml += `<p class="text-sm"><b>Median:</b> ${stats.median}</p>`;
+                    contentHtml += `<p class="text-sm"><b>Std Dev:</b> ${stats.stdDev}</p>`;
+                    contentHtml += `<p class="text-sm"><b>Min:</b> ${stats.min}</p>`;
+                    contentHtml += `<p class="text-sm"><b>Max:</b> ${stats.max}</p>`;
+                } else {
+                    contentHtml += `<p class="text-sm"><b>Count:</b> ${stats.count}</p>`;
+                    contentHtml += `<p class="text-sm"><b>Unique:</b> ${stats.unique}</p>`;
+                }
+                contentHtml += `</div>`;
+                summaryContent.innerHTML += contentHtml;
+            });
+        }
+
+        // --- Data Cleaning ---
+        function handleNullAction() {
+            const column = nullColumnSelect.value;
+            const action = nullActionSelect.value;
+            if (!column || !action) {
+                alertMessage('Please select a column and an action.', 'error'); return;
+            }
+
+            if (action === 'remove_row') {
+                processedData = processedData.filter(row => row[column] !== '' && row[column] !== null);
+            } else {
+                let fillValue;
+                const numericValues = processedData.map(row => parseFloat(row[column])).filter(v => !isNaN(v));
+                if (action.includes('mean') || action.includes('median')) {
+                    if (numericValues.length === 0) {
+                         alertMessage('Cannot calculate for non-numeric column.', 'error'); return;
+                    }
+                }
+
+                if (action === 'fill_mean') {
+                    fillValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                } else if (action === 'fill_median') {
+                    const sorted = numericValues.sort((a, b) => a - b);
+                    const mid = Math.floor(sorted.length / 2);
+                    fillValue = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+                } else if (action === 'fill_mode') {
+                    const counts = processedData.reduce((acc, row) => {
+                        const val = row[column];
+                        if (val !== '' && val !== null) {
+                            acc[val] = (acc[val] || 0) + 1;
+                        }
+                        return acc;
+                    }, {});
+                    if (Object.keys(counts).length === 0) {
+                        alertMessage('No values to calculate mode from.', 'error'); return;
+                    }
+                    fillValue = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                }
+
+                processedData.forEach(row => {
+                    if (row[column] === '' || row[column] === null) {
+                        row[column] = (typeof fillValue === 'number') ? fillValue.toFixed(2) : fillValue;
+                    }
+                });
+            }
+            displayData();
+            displaySummary();
+            alertMessage(`Action '${action}' applied to column '${column}'.`);
+        }
+
+        function applyFilter() {
+            const column = filterColumnSelect.value;
+            const operator = filterOperatorSelect.value;
+            let value = filterValueInput.value;
+            if (!column) {
+                alertMessage('Please select a column to filter.', 'error'); return;
+            }
+            const isNumeric = !isNaN(parseFloat(value));
+            if(isNumeric) value = parseFloat(value);
+
+            processedData = processedData.filter(row => {
+                let rowVal = row[column];
+                if (!isNaN(parseFloat(rowVal))) {
+                   rowVal = parseFloat(rowVal);
+                }
+                switch (operator) {
+                    case '==': return rowVal == value;
+                    case '!=': return rowVal != value;
+                    case '>': return rowVal > value;
+                    case '<': return rowVal < value;
+                    case '>=': return rowVal >= value;
+                    case '<=': return rowVal <= value;
+                    case 'contains': return String(rowVal).toLowerCase().includes(String(value).toLowerCase());
+                    default: return true;
+                }
+            });
+            displayData();
+            displaySummary();
+            alertMessage(`Filter applied to column '${column}'.`);
+        }
+
+        function applySort() {
+            const column = sortColumnSelect.value;
+            const direction = sortDirectionSelect.value;
+            if(!column) {
+                alertMessage('Please select a column to sort.', 'error'); return;
+            }
+
+            processedData.sort((a, b) => {
+                let valA = a[column]; let valB = b[column];
+                const numA = parseFloat(valA); const numB = parseFloat(valB);
+                if (!isNaN(numA) && !isNaN(numB)) { valA = numA; valB = numB; }
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            displayData();
+            alertMessage(`Data sorted by column '${column}'.`);
+        }
+
+        // --- Visualization ---
+        function generateChart() {
+            const type = chartTypeSelect.value;
+            const xCol = xAxisSelect.value;
+            const yCol = yAxisSelect.value;
+
+            if (!xCol || (!yCol && type !== 'pie')) {
+                alertMessage('Please select columns for your chart.', 'error'); return;
+            }
+
+            const ctx = document.getElementById('myChart').getContext('2d');
+            let data, options;
+            const labels = [...new Set(processedData.map(row => row[xCol]))];
+
+            if (type === 'bar' || type === 'line') {
+                const aggregatedData = labels.map(label => {
+                    const filtered = processedData.filter(row => row[xCol] === label);
+                    const values = filtered.map(row => parseFloat(row[yCol])).filter(v => !isNaN(v));
+                    if (values.length === 0) return 0;
+                    return values.reduce((a,b) => a+b, 0) / values.length; // Average
+                });
+                data = {
+                    labels,
+                    datasets: [{
+                        label: `${yCol} by ${xCol}`,
+                        data: aggregatedData,
+                        backgroundColor: type === 'bar' ? 'rgba(54, 162, 235, 0.6)' : undefined,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        fill: type === 'line'
+                    }]
+                };
+            } else if (type === 'scatter') {
+                const scatterData = processedData.map(row => ({
+                    x: parseFloat(row[xCol]), y: parseFloat(row[yCol])
+                })).filter(d => !isNaN(d.x) && !isNaN(d.y));
+                data = {
+                    datasets: [{
+                        label: `${yCol} vs ${xCol}`,
+                        data: scatterData,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                    }]
+                };
+            } else if (type === 'pie') {
+                const counts = processedData.reduce((acc, row) => {
+                    const key = row[xCol]; acc[key] = (acc[key] || 0) + 1; return acc;
+                }, {});
+                data = {
+                    labels: Object.keys(counts),
+                    datasets: [{
+                        data: Object.values(counts),
+                        backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)']
+                    }]
+                }
+            }
+
+            options = {
+                responsive: true, maintainAspectRatio: true,
+                scales: (type === 'scatter' || type === 'bar' || type === 'line') ? {
+                    x: { title: { display: true, text: xCol } },
+                    y: { title: { display: true, text: yCol } }
+                } : {},
+                plugins: {
+                    title: { display: true, text: `${type.charAt(0).toUpperCase() + type.slice(1)} Chart`, font: { size: 16 } }
+                }
+            };
+
+            if(chartInstance) { chartInstance.destroy(); }
+            chartInstance = new Chart(ctx, { type, data, options });
+        }
+
+        // --- Utility ---
+        function alertMessage(message, type = 'success') {
+            const alertBox = document.createElement('div');
+            alertBox.textContent = message;
+            alertBox.className = `fixed top-5 right-5 p-4 rounded-lg text-white shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            document.body.appendChild(alertBox);
+            setTimeout(() => {
+                alertBox.style.transition = 'opacity 0.5s';
+                alertBox.style.opacity = '0';
+                setTimeout(() => alertBox.remove(), 500);
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
